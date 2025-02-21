@@ -11,7 +11,7 @@ import random
 import itertools
 from pinecone import Pinecone, ServerlessSpec
 import concurrent.futures
-from neural_network import SimpleNeuralNetwork
+from neural_network import NeuralNetwork
 import time
 
 # Load environment variables from the .env file
@@ -320,7 +320,7 @@ def accuracy(predictions, labels):
 # ---------------------------
 # Train the Neural Network
 # ---------------------------
-nn = SimpleNeuralNetwork(input_size=sequence_length, hidden_size=30, output_size=1)
+nn = NeuralNetwork(hidden_size=30, vocab_size=1000)
 
 num_samples = min(len(X_train), len(y_train))
 
