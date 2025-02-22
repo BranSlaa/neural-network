@@ -71,7 +71,7 @@ def suggest_more(
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are an expert in history, geography, science, and linguistics."},
                 {"role": "user", "content": prompt}
