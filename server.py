@@ -290,21 +290,22 @@ events = [
 
 @app.get("/get_events", response_model=List[Event])
 def suggest_more(
+    topic: Optional[str] = Query(default=None, description="Event Topic"),
     title: Optional[str] = Query(default=None, description="Event Title"),
-    year: Optional[int] = Query(default=None, description="Event Year"),
-    topic: Optional[str] = Query(default=None, description="Event Topic")
+    yearMinOrNear: Optional[int] = Query(default=None, description="Event Min or Near Year"),
+    yearMax: Optional[int] = Query(default=None, description="Event Max Year"),
 ):
     """
-    Uses OpenAI GPT model to suggest related locations or events based on optional filters.
+    Uses OpenAI GPT model to suggest related events, great people, places, scientific discoveries, works of art, or military conflicts related to the topic based on optional filters.
     """
-    prompt = "Provide exactly three historically, geographically, scientifically, or linguistically significant locations."
+    prompt = f"Provide exactly three significant events, people, places, scientific discoveries, works of art, or military conflicts related to the topic {topic}."
 
     if title:
         prompt += f" Related to the event titled '{title}'."
-    if year:
-        prompt += f" That occurred shortly after the year {year}."
-    if topic:
-        prompt += f" Consider the topic '{topic}' for relevance."
+    if yearMinOrNear and not yearMax:
+        prompt += f" That occurred shortly after the year {yearMinOrNear}."
+    if yearMinOrNear and yearMax:
+        prompt += f" That occurred between the years {yearMinOrNear} and {yearMax}, with a preference for events that occurred near the year {yearMinOrNear}."
 
     prompt += """
     Respond in JSON format as a list of objects, each containing:
@@ -343,7 +344,7 @@ def suggest_more(
                     info=item["info"]
                 ))
 
-        return locations[:3]  
+        return locations[:3]
 
     except json.JSONDecodeError as e:
         print(f"JSON parsing error: {e}")
