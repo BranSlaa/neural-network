@@ -27,7 +27,7 @@ stop_words = set(stopwords.words('english'))
 pinecone_client = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 
 # Define index name and host
-index_name = "history-map-index"
+index_name = "history-map"
 index_host = os.getenv("PINECONE_HOST")  # Ensure this is set in your .env file
 
 vector_dimemsion = 5
