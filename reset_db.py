@@ -1,30 +1,4 @@
-import os
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from contextlib import contextmanager
-
-# Database connection setup
-DATABASE_URL = os.getenv("DATABASE_URL") or "postgresql://postgres:brandons-local-server@localhost:5432/history_map_db"
-
-# Context manager for database connections
-@contextmanager
-def get_db_connection():
-    conn = psycopg2.connect(DATABASE_URL)
-    try:
-        conn.autocommit = True
-        yield conn
-    finally:
-        conn.close()
-
-# Context manager for database cursors
-@contextmanager
-def get_db_cursor():
-    with get_db_connection() as conn:
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        try:
-            yield cursor
-        finally:
-            cursor.close()
+from functions.database import get_db_cursor
 
 def drop_all_tables():
     """Drop all tables in the database"""
