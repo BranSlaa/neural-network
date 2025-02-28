@@ -2,10 +2,10 @@ from typing import List, Optional
 from enum import Enum
 from pydantic import BaseModel
 
-class SubscriptionTier(str, Enum):
-    STUDENT = "student"
-    SCHOLAR = "scholar"
-    HISTORIAN = "historian"
+class SubscriptionTier(int, Enum):
+    STUDENT = 1
+    SCHOLAR = 2
+    HISTORIAN = 3
 
 class Event(BaseModel):
     id: Optional[str] = None
@@ -34,11 +34,6 @@ class UserCreate(BaseModel):
 class TokenData(BaseModel):
     clerk_id: str
     tier: SubscriptionTier
-
-class SubscriptionTier(str, Enum):
-    STUDENT = "student"
-    SCHOLAR = "scholar"
-    HISTORIAN = "historian"
 
 class Event(BaseModel):
     id: Optional[str] = None

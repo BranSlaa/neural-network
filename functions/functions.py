@@ -27,7 +27,7 @@ conn_pool = SimpleConnectionPool(
     dsn=DATABASE_URL
 )
 
-JWT_SECRET = os.getenv("JWT_SECRET")
+JWT_SECRET = os.getenv("JWT_SECRET") or "9357048b73a03490c56e4d830d6fb60cf9d9352c9e6b34aa647ea80aada247d8"
 JWT_ALGORITHM = "HS256"
 
 # Context manager for database connections
@@ -54,6 +54,8 @@ def get_current_user_tier(authorization: str = Security(api_key_header)) -> Toke
     """
     Validate the JWT token and return the user's tier
     """
+    print(f"Authorization header: {authorization}")
+    
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=401,
@@ -62,40 +64,57 @@ def get_current_user_tier(authorization: str = Security(api_key_header)) -> Toke
         )
     
     token = authorization.split("Bearer ")[1]
+    print(f"Token to decode: {token[:10]}...")
     
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        clerk_id = payload.get("clerk_id")
-        tier = payload.get("tier")
+        print(f"Decoded payload: {payload}")
         
-        if not clerk_id or not tier:
+        clerk_id = payload.get("clerk_id")
+        tier_value = payload.get("tier")
+        
+        if not clerk_id or tier_value is None:
             raise HTTPException(status_code=401, detail="Invalid token payload")
         
-        return TokenData(clerk_id=clerk_id, tier=tier)
-    except jwt.PyJWTError:
+        # Convert tier value to SubscriptionTier enum
+        try:
+            # Handle the case where tier_str is in format "SubscriptionTier.SCHOLAR"
+            if isinstance(tier_value, str) and tier_value.startswith("SubscriptionTier."):
+                tier_name = tier_value.split(".")[-1]
+                tier = getattr(SubscriptionTier, tier_name)
+            else:
+                # Convert to int if it's a string
+                if isinstance(tier_value, str):
+                    tier_value = int(tier_value)
+                    
+                # Find the enum by value
+                tier = SubscriptionTier(tier_value)
+                    
+            return TokenData(clerk_id=clerk_id, tier=tier)
+        except (ValueError, AttributeError) as e:
+            print(f"Invalid tier value in token: {tier_value}, error: {str(e)}")
+            raise HTTPException(status_code=401, detail="Invalid tier in token")
+    except jwt.PyJWTError as e:
+        print(f"JWT error: {str(e)}")
         raise HTTPException(
             status_code=401,
-            detail="Invalid authentication token",
+            detail=f"Invalid authentication token: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
 def verify_tier_access(required_tier: SubscriptionTier, user_tier: SubscriptionTier) -> bool:
     """
     Check if the user's tier meets the required tier level
-    Tier hierarchy: historian > scholar > student
+    Tier hierarchy: 3 (historian) > 2 (scholar) > 1 (student)
     """
-    tier_levels = {
-        SubscriptionTier.STUDENT: 1,
-        SubscriptionTier.SCHOLAR: 2,
-        SubscriptionTier.HISTORIAN: 3
-    }
-    
-    return tier_levels[user_tier] >= tier_levels[required_tier]
+    # Since tiers are numeric values (1, 2, 3), we can directly compare them
+    return user_tier.value >= required_tier.value
 
 async def get_user_from_db(clerk_id: str) -> Optional[User]:
     """
     Retrieve user information from the database
     """
+    print(f"Looking for user with clerk_id: {clerk_id}")
     with get_db_cursor() as cursor:
         cursor.execute(
             """
@@ -108,14 +127,39 @@ async def get_user_from_db(clerk_id: str) -> Optional[User]:
         user_data = cursor.fetchone()
         
         if user_data:
-            return User(
-                id=str(user_data['id']),
-                clerk_id=user_data['clerk_id'],
-                username=user_data['username'],
-                email=user_data['email'],
-                subscription_tier=user_data['subscription_tier'],
-                created_at=str(user_data['created_at'])
-            )
+            print(f"Found user data: {user_data}")
+            # Convert string tier values to integers
+            tier_value = user_data['subscription_tier']
+            tier_mapping = {
+                'student': 1,
+                'scholar': 2, 
+                'historian': 3
+            }
+            
+            if isinstance(tier_value, str) and tier_value in tier_mapping:
+                numeric_tier = tier_mapping[tier_value]
+            else:
+                # Try to use as-is (might already be numeric)
+                numeric_tier = tier_value
+                
+            try:
+                return User(
+                    id=str(user_data['id']),
+                    clerk_id=user_data['clerk_id'],
+                    username=user_data['username'],
+                    email=user_data['email'],
+                    subscription_tier=numeric_tier,
+                    created_at=str(user_data['created_at'])
+                )
+            except Exception as e:
+                print(f"Error creating User from DB data: {e}, tier value: {tier_value}, numeric: {numeric_tier}")
+                raise
+        else:
+            print(f"No user found with clerk_id: {clerk_id}")
+            # TODO REMOVE - For debugging, list all users in the database
+            cursor.execute("SELECT clerk_id FROM users LIMIT 10")
+            all_users = cursor.fetchall()
+            print(f"Existing users (up to 10): {[u['clerk_id'] for u in all_users]}")
         return None
 
 # Helper functions

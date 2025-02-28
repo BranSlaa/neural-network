@@ -8,15 +8,23 @@ from functions.functions import *
 from functions.database import init_db
 
 # Import endpoint modules
-from endpoints import auth, users, misc, get_events
+from endpoints import auth, users, misc, get_events, quizzes
 
 # Download required NLTK data
 nltk.download('wordnet')
 nltk.download('omw-1.4')
 
 # Initialize clients and configuration
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
+    print("WARNING: OPENAI_API_KEY environment variable is not set. Some features might not work properly.")
+    openai_api_key = "dummy_key_for_development"
+client = OpenAI(api_key=openai_api_key)
+
 pinecone_api_key = os.getenv("PINECONE_API_KEY")
+if not pinecone_api_key:
+    print("WARNING: PINECONE_API_KEY environment variable is not set. Vector search will not work properly.")
+    pinecone_api_key = "dummy_key_for_development"
 pinecone_index_name = os.getenv("PINECONE_INDEX_NAME", "history-map")
 pinecone_dim = int(os.getenv("PINECONE_DIMENSION", "1536"))
 pc = Pinecone(api_key=pinecone_api_key)
@@ -59,6 +67,7 @@ auth.setup_routes(app)
 users.setup_routes(app)
 misc.setup_routes(app)
 get_events.setup_routes(app)
+quizzes.setup_routes(app)
 
 # Run the application
 if __name__ == "__main__":
